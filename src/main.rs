@@ -34,6 +34,7 @@ fn main() {
     let mut gui = three_d::GUI::new(&context);
     let mut _state = AppState { /* ... */ };
     let mut time_factor = 1.0;
+    let mut scale_slider = 50.0;
 
     window.render_loop(move |mut frame_input| {
         let mut left_width = 0.0f32;
@@ -51,7 +52,8 @@ fn main() {
                 Panel::left("left").show_inside(ui, |ui| {
                     // sliders that mutate state.params
                     ui.heading("Parameters");
-                    ui.add(egui::Slider::new(&mut time_factor, 0.0..=100.0).text("Time Scalar"));
+                    ui.add(egui::Slider::new(&mut time_factor, 0.0..=10.0).text("Time Scalar"));
+                    ui.add(egui::Slider::new(&mut scale_slider, 0.0..=100.0).text("Scale"));
                 });
                 Panel::bottom("bottom").show_inside(ui, |ui| {
                     // shader selector
@@ -79,12 +81,20 @@ fn main() {
                 .height
                 .saturating_sub((bottom_height * dpr) as u32),
         };
-
+        // send time to gpu
+        // same pattern for other variables that I will create
         let program = &programs[selected];
         program.use_uniform("time", time_secs * time_factor);
+        let scale = 2f32.powf(scale_slider / 10.0 - 5.0);
+        program.use_uniform("scale", scale);
         program.use_uniform(
-            "resolution",
-            vec2(viewport.width as f32, viewport.height as f32),
+            "viewport",
+            vec4(
+                viewport.x as f32,
+                viewport.y as f32,
+                viewport.width as f32,
+                viewport.height as f32,
+            ),
         );
         program.use_vertex_attribute("position", &positions);
 

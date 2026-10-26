@@ -1,62 +1,90 @@
-// import stuff from eframe extern crate
+use three_d::*;
 
-use eframe::egui;
-
-// main entry point of the program
-
-fn main() -> Result<(), eframe::Error> {
-    // default window settings
-    let options = eframe::NativeOptions::default();
-    // starting the egui app
-    eframe::run_native(
-        "TshaderZ",
-        options,
-        //create app state
-        Box::new(|_cc| Ok(Box::new(MyApp::default()))),
-    )
+struct AppState {
+    // your params live here: value: f32, selected: usize, ...
 }
 
-// the struct here holds the application's data state
+fn main() {
+    let window = Window::new(WindowSettings {
+        title: "TshaderZ".into(),
+        ..Default::default()
+    })
+    .unwrap();
+    let context = window.gl(); // (1)
 
-#[derive(Default)] // makes it easier to create a starting instance i dont really know what that means but i remember it from class somewhere
-struct MyApp {
-    label: String, // for text inputs
-    value: f32,    // value inputs
-                   // add more fields as we go
-}
+    let camera = Camera::new_orthographic(
+        window.viewport(),
+        vec3(0.0, 0.0, 0.0),
+        vec3(0.0, 0.0, 1.0),
+        vec3(0.0, 1.0, 0.0),
+        2.0,
+        0.1,
+        10.0,
+    );
 
-// implement the efraim::app trait for MyApp telling eframe how to run it
-impl eframe::App for MyApp {
-    // ui method is called every frame to draw the ui (in newer versions of eframe, this replaced `update`)
-    // '&mut self' allows the method to modify MyApp's fields, mutable self reference thanks
-    // Wheelock!!!
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // central for ui
-        //ui our tool to add widgets
-        egui::Panel::bottom("bottom").show(ui, |ui| {
-            ui.heading("testing bottom pannel and long line of text i guess idk");
-        });
+    let cpu_mesh = CpuMesh {
+        positions: Positions::F32(vec![
+            vec3(1000.0, -1000.0, 0.0),  // bottom right
+            vec3(-1000.0, -1000.0, 0.0), // bottom left
+            vec3(0.0, 1000.0, 0.0),      // top
+        ]),
+        colors: Some(vec![
+            Srgba::new(255, 0, 0, 255), // bottom right
+            Srgba::new(0, 255, 0, 255), // bottom left
+            Srgba::new(0, 0, 255, 255), // top
+        ]),
+        ..Default::default()
+    };
 
-        egui::Panel::left("left").show(ui, |ui| {
-            ui.heading("T shaders Z");
-            ui.horizontal(|ui| {
-                ui.label("Testing testing");
-                ui.text_edit_singleline(&mut self.label);
-            });
+    let gm = Gm::new(Mesh::new(&context, &cpu_mesh), ColorMaterial::default());
 
-            // adding a slider linked to self.value
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            // adding a button
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
-            }
+    let mut gui = three_d::GUI::new(&context); // (2)
+    let mut _state = AppState { /* ... */ };
 
-            //display the current state in a label
-            ui.label(format!("Hello '{}', value: {}", self.label, self.value));
-        });
+    window.render_loop(move |mut frame_input| {
+        // (3)
+        let mut left_width = 0.0f32;
+        let mut bottom_height = 0.0f32;
 
-        egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading("testing the future viewport panel");
-        });
-    }
+        // (4) run egui FIRST, and measure the panels while building them
+        gui.update(
+            &mut frame_input.events,
+            frame_input.accumulated_time,
+            frame_input.viewport,
+            frame_input.device_pixel_ratio,
+            |ui| {
+                use three_d::egui::*;
+                Panel::left("left").show_inside(ui, |ui| {
+                    // sliders that mutate state.params
+                    ui.heading("test")
+                });
+                Panel::bottom("bottom").show_inside(ui, |ui| {
+                    // shader selector
+                    ui.heading("test")
+                });
+                left_width = frame_input.window_width as f32 - ui.available_width();
+                bottom_height = frame_input.window_height as f32 - ui.available_height();
+            },
+        );
+
+        // (5) the central rectangle, in GPU pixels
+
+        let dpr = frame_input.device_pixel_ratio;
+        let viewport = Viewport {
+            x: (left_width * frame_input.device_pixel_ratio) as i32,
+            y: (bottom_height * frame_input.device_pixel_ratio) as i32, // careful: flipped
+            width: frame_input.window_width - (left_width * dpr) as u32,
+            height: frame_input.window_height - (bottom_height * dpr) as u32,
+        };
+
+        // (6) draw the shader only inside that rectangle, then the UI on top
+        frame_input
+            .screen()
+            .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+            .render_partially(viewport.into(), &camera, &gm, &[])
+            .write(|| gui.render())
+            .unwrap();
+
+        FrameOutput::default() // (7)
+    });
 }

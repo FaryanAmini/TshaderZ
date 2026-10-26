@@ -33,8 +33,12 @@ impl eframe::App for MyApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // central for ui
         //ui our tool to add widgets
+        egui::Panel::bottom("bottom").show(ui, |ui| {
+            ui.heading("testing bottom pannel and long line of text i guess idk");
+        });
+
         egui::Panel::left("left").show(ui, |ui| {
-            ui.heading("My Application");
+            ui.heading("T shaders Z");
             ui.horizontal(|ui| {
                 ui.label("Testing testing");
                 ui.text_edit_singleline(&mut self.label);
@@ -51,8 +55,8 @@ impl eframe::App for MyApp {
             ui.label(format!("Hello '{}', value: {}", self.label, self.value));
         });
 
-        egui::Panel::bottom("bottom").show(ui, |ui| {
-            ui.heading("testing bottom pannel and long line of text i guess idk")
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.heading("testing the future viewport panel");
         });
     }
 }

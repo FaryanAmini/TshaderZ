@@ -53,6 +53,7 @@ fn main() {
             frame_input.viewport,
             frame_input.device_pixel_ratio,
             |ui| {
+                let dpr = frame_input.device_pixel_ratio;
                 use three_d::egui::*;
                 Panel::left("left").show_inside(ui, |ui| {
                     // sliders that mutate state.params
@@ -62,19 +63,22 @@ fn main() {
                     // shader selector
                     ui.heading("test")
                 });
-                left_width = frame_input.window_width as f32 - ui.available_width();
-                bottom_height = frame_input.window_height as f32 - ui.available_height();
+                left_width = frame_input.window_width as f32 / dpr - ui.available_width();
+                bottom_height = frame_input.window_height as f32 / dpr - ui.available_height();
             },
         );
 
         // (5) the central rectangle, in GPU pixels
-
         let dpr = frame_input.device_pixel_ratio;
         let viewport = Viewport {
             x: (left_width * frame_input.device_pixel_ratio) as i32,
             y: (bottom_height * frame_input.device_pixel_ratio) as i32, // careful: flipped
-            width: frame_input.window_width - (left_width * dpr) as u32,
-            height: frame_input.window_height - (bottom_height * dpr) as u32,
+            width: frame_input
+                .window_width
+                .saturating_sub((left_width * dpr) as u32),
+            height: frame_input
+                .window_height
+                .saturating_sub((bottom_height * dpr) as u32),
         };
 
         // (6) draw the shader only inside that rectangle, then the UI on top

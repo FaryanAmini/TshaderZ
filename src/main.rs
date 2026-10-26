@@ -50,5 +50,9 @@ impl eframe::App for MyApp {
             //display the current state in a label
             ui.label(format!("Hello '{}', value: {}", self.label, self.value));
         });
+
+        egui::Panel::bottom("bottom").show(ui, |ui| {
+            ui.heading("testing bottom pannel and long line of text i guess idk")
+        });
     }
 }

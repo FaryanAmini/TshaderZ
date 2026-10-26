@@ -1,7 +1,7 @@
 use three_d::{egui::SizeHint::Scale, *};
 
 struct AppState {
-    // your params live here: value: f32, selected: usize, ...
+    // params live here: value: f32, selected: usize, ...
 }
 
 fn main() {
@@ -12,31 +12,24 @@ fn main() {
     .unwrap();
     let context = window.gl();
 
-    let camera = Camera::new_orthographic(
-        window.viewport(),
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 0.0, 1.0),
-        vec3(0.0, 1.0, 0.0),
-        2.0,
-        0.1,
-        10.0,
+    let positions = VertexBuffer::new_with_data(
+        &context,
+        &[
+            vec3(-1.0, -1.0, 0.0),
+            vec3(3.0, -1.0, 0.0),
+            vec3(-1.0, 3.0, 0.0),
+        ],
     );
 
-    let cpu_mesh = CpuMesh {
-        positions: Positions::F32(vec![
-            vec3(1000.0, -1000.0, 0.0),  // bottom right
-            vec3(-1000.0, -1000.0, 0.0), // bottom left
-            vec3(0.0, 1000.0, 0.0),      // top
-        ]),
-        colors: Some(vec![
-            Srgba::new(255, 0, 0, 255), // bottom right
-            Srgba::new(0, 255, 0, 255), // bottom left
-            Srgba::new(0, 0, 255, 255), // top
-        ]),
-        ..Default::default()
-    };
-
-    let gm = Gm::new(Mesh::new(&context, &cpu_mesh), ColorMaterial::default());
+    const VERTEX_SRC: &str = include_str!("fullscreen.vert");
+    let shader_sources = [
+        include_str!("plasma.frag"), /* include_str!("next.frag"), ... */
+    ];
+    let programs: Vec<Program> = shader_sources
+        .iter()
+        .map(|frag| Program::from_source(&context, VERTEX_SRC, frag).unwrap())
+        .collect();
+    let mut selected = 0usize;
 
     let mut gui = three_d::GUI::new(&context);
     let mut _state = AppState { /* ... */ };
@@ -54,7 +47,6 @@ fn main() {
             frame_input.viewport,
             frame_input.device_pixel_ratio,
             |ui| {
-                let dpr = frame_input.device_pixel_ratio;
                 use three_d::egui::*;
                 Panel::left("left").show_inside(ui, |ui| {
                     // sliders that mutate state.params
@@ -65,38 +57,45 @@ fn main() {
                     // shader selector
                     ui.heading("test")
                 });
-                left_width = frame_input.window_width as f32 / dpr - ui.available_width();
-                bottom_height = frame_input.window_height as f32 / dpr - ui.available_height();
+                // window_width and egui measurements are BOTH logical points here;
+                // physical conversion happens once: * dpr (x/y) and via viewport.width/height
+                left_width = frame_input.window_width as f32 - ui.available_width();
+                bottom_height = frame_input.window_height as f32 - ui.available_height();
             },
         );
 
         // the central rectangle, in GPU pixels
         let dpr = frame_input.device_pixel_ratio;
+        // physical framebuffer size: frame_input.viewport (window_width is LOGICAL)
         let viewport = Viewport {
-            x: (left_width * frame_input.device_pixel_ratio) as i32,
-            y: (bottom_height * frame_input.device_pixel_ratio) as i32, // careful: flipped
+            x: (left_width * dpr) as i32,
+            y: (bottom_height * dpr) as i32, // careful: flipped
             width: frame_input
-                .window_width
+                .viewport
+                .width
                 .saturating_sub((left_width * dpr) as u32),
             height: frame_input
-                .window_height
+                .viewport
+                .height
                 .saturating_sub((bottom_height * dpr) as u32),
         };
 
-        // draw the shader only inside that rectangle, then the UI on top
+        let program = &programs[selected];
+        program.use_uniform("time", time_secs * time_factor);
+        program.use_uniform(
+            "resolution",
+            vec2(viewport.width as f32, viewport.height as f32),
+        );
+        program.use_vertex_attribute("position", &positions);
+
         frame_input
             .screen()
-            .clear(ClearState::color_and_depth(
-                (time_secs * time_factor).rem_euclid(1.0),
-                (time_secs * (time_factor / 2.0)).rem_euclid(1.0),
-                (time_secs * time_factor).rem_euclid(1.0),
-                1.0,
-                1.0,
-            ))
-            .render_partially(viewport.into(), &camera, &gm, &[])
-            .write(|| gui.render())
+            .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+            .write::<CoreError>(|| {
+                program.draw_arrays(RenderStates::default(), viewport, 3);
+                gui.render()
+            })
             .unwrap();
-
         FrameOutput::default() //
     });
 }

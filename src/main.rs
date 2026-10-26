@@ -31,22 +31,24 @@ impl eframe::App for MyApp {
     // '&mut self' allows the method to modify MyApp's fields, mutable self reference thanks
     // Wheelock!!!
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // central panel for ui
+        // central for ui
         //ui our tool to add widgets
-        ui.heading("My Application");
-        ui.horizontal(|ui| {
-            ui.label("Testing testing");
-            ui.text_edit_singleline(&mut self.label);
+        egui::Panel::left("left").show(ui, |ui| {
+            ui.heading("My Application");
+            ui.horizontal(|ui| {
+                ui.label("Testing testing");
+                ui.text_edit_singleline(&mut self.label);
+            });
+
+            // adding a slider linked to self.value
+            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
+            // adding a button
+            if ui.button("Increment").clicked() {
+                self.value += 1.0;
+            }
+
+            //display the current state in a label
+            ui.label(format!("Hello '{}', value: {}", self.label, self.value));
         });
-
-        // adding a slider linked to self.value
-        ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-        // adding a button
-        if ui.button("Increment").clicked() {
-            self.value += 1.0;
-        }
-
-        //display the current state in a label
-        ui.label(format!("Hello '{}', value: {}", self.label, self.value));
     }
 }

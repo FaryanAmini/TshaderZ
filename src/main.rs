@@ -1,4 +1,4 @@
-use three_d::*;
+use three_d::{egui::SizeHint::Scale, *};
 
 struct AppState {
     // your params live here: value: f32, selected: usize, ...
@@ -10,7 +10,7 @@ fn main() {
         ..Default::default()
     })
     .unwrap();
-    let context = window.gl(); // (1)
+    let context = window.gl();
 
     let camera = Camera::new_orthographic(
         window.viewport(),
@@ -38,15 +38,16 @@ fn main() {
 
     let gm = Gm::new(Mesh::new(&context, &cpu_mesh), ColorMaterial::default());
 
-    let mut gui = three_d::GUI::new(&context); // (2)
+    let mut gui = three_d::GUI::new(&context);
     let mut _state = AppState { /* ... */ };
+    let mut time_factor = 1.0;
 
     window.render_loop(move |mut frame_input| {
-        // (3)
         let mut left_width = 0.0f32;
         let mut bottom_height = 0.0f32;
+        let time_secs = (frame_input.accumulated_time * 0.001) as f32;
 
-        // (4) run egui FIRST, and measure the panels while building them
+        //  run egui FIRST, and measure the panels while building them
         gui.update(
             &mut frame_input.events,
             frame_input.accumulated_time,
@@ -57,7 +58,8 @@ fn main() {
                 use three_d::egui::*;
                 Panel::left("left").show_inside(ui, |ui| {
                     // sliders that mutate state.params
-                    ui.heading("test")
+                    ui.heading("Parameters");
+                    ui.add(egui::Slider::new(&mut time_factor, 0.0..=100.0).text("Time Scalar"));
                 });
                 Panel::bottom("bottom").show_inside(ui, |ui| {
                     // shader selector
@@ -68,7 +70,7 @@ fn main() {
             },
         );
 
-        // (5) the central rectangle, in GPU pixels
+        // the central rectangle, in GPU pixels
         let dpr = frame_input.device_pixel_ratio;
         let viewport = Viewport {
             x: (left_width * frame_input.device_pixel_ratio) as i32,
@@ -81,14 +83,20 @@ fn main() {
                 .saturating_sub((bottom_height * dpr) as u32),
         };
 
-        // (6) draw the shader only inside that rectangle, then the UI on top
+        // draw the shader only inside that rectangle, then the UI on top
         frame_input
             .screen()
-            .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+            .clear(ClearState::color_and_depth(
+                (time_secs * time_factor).rem_euclid(1.0),
+                (time_secs * (time_factor / 2.0)).rem_euclid(1.0),
+                (time_secs * time_factor).rem_euclid(1.0),
+                1.0,
+                1.0,
+            ))
             .render_partially(viewport.into(), &camera, &gm, &[])
             .write(|| gui.render())
             .unwrap();
 
-        FrameOutput::default() // (7)
+        FrameOutput::default() //
     });
 }

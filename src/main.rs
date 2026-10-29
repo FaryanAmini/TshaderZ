@@ -23,7 +23,9 @@ fn main() {
 
     const VERTEX_SRC: &str = include_str!("fullscreen.vert");
     let shader_sources = [
-        include_str!("plasma.frag"), /* include_str!("next.frag"), ... */
+        include_str!("plasma.frag"),
+        include_str!("game_of_life.frag"),
+        include_str!("portal.frag"), /* include_str!("next.frag"), ... */
     ];
     let programs: Vec<Program> = shader_sources
         .iter()
@@ -57,7 +59,18 @@ fn main() {
                 });
                 Panel::bottom("bottom").show_inside(ui, |ui| {
                     // shader selector
-                    ui.heading("test")
+                    ui.heading("Shaders");
+                    ui.horizontal(|ui| {
+                        if ui.button("plasma").clicked() {
+                            selected = 0usize;
+                        };
+                        if ui.button("game_of_life").clicked() {
+                            selected = 1usize;
+                        };
+                        if ui.button("portal").clicked() {
+                            selected = 2usize;
+                        }
+                    });
                 });
                 // window_width and egui measurements are BOTH logical points here;
                 // physical conversion happens once: * dpr (x/y) and via viewport.width/height
@@ -84,10 +97,10 @@ fn main() {
         // send time to gpu
         // same pattern for other variables that I will create
         let program = &programs[selected];
-        program.use_uniform("time", time_secs * time_factor);
+        program.use_uniform_if_required("time", time_secs * time_factor);
         let scale = 2f32.powf(scale_slider / 10.0 - 5.0);
-        program.use_uniform("scale", scale);
-        program.use_uniform(
+        program.use_uniform_if_required("scale", scale);
+        program.use_uniform_if_required(
             "viewport",
             vec4(
                 viewport.x as f32,
